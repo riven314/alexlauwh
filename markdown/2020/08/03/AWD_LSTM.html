@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>How to Properly Apply Dropout on Recurrent Neural Network? | Alex Lau</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="How to Properly Apply Dropout on Recurrent Neural Network?" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN." />
+<meta property="og:description" content="Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN." />
+<link rel="canonical" href="https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html" />
+<meta property="og:url" content="https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html" />
+<meta property="og:site_name" content="Alex Lau" />
+<meta property="og:image" content="https://riven314.github.io/alexlauwh/images/2020-08-03-AWS_LSTM/B2_Z13_intro_embedding.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-08-03T00:00:00-05:00" />
+<script type="application/ld+json">
+{"headline":"How to Properly Apply Dropout on Recurrent Neural Network?","description":"Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN.","datePublished":"2020-08-03T00:00:00-05:00","dateModified":"2020-08-03T00:00:00-05:00","image":"https://riven314.github.io/alexlauwh/images/2020-08-03-AWS_LSTM/B2_Z13_intro_embedding.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html"},"url":"https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/alexlauwh/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://riven314.github.io/alexlauwh/feed.xml" title="Alex Lau" /><link rel="shortcut icon" type="image/x-icon" href="/alexlauwh/images/favicon.ico"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>How to Properly Apply Dropout on Recurrent Neural Network? | Alex Lau</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="How to Properly Apply Dropout on Recurrent Neural Network?" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN." />
+<meta property="og:description" content="Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN." />
+<link rel="canonical" href="https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html" />
+<meta property="og:url" content="https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html" />
+<meta property="og:site_name" content="Alex Lau" />
+<meta property="og:image" content="https://riven314.github.io/alexlauwh/images/2020-08-03-AWS_LSTM/B2_Z13_intro_embedding.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-08-03T00:00:00-05:00" />
+<script type="application/ld+json">
+{"headline":"How to Properly Apply Dropout on Recurrent Neural Network?","description":"Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN.","datePublished":"2020-08-03T00:00:00-05:00","dateModified":"2020-08-03T00:00:00-05:00","image":"https://riven314.github.io/alexlauwh/images/2020-08-03-AWS_LSTM/B2_Z13_intro_embedding.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html"},"url":"https://riven314.github.io/alexlauwh/markdown/2020/08/03/AWD_LSTM.html","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+<link href="https://unpkg.com/@primer/css/dist/primer.css" rel="stylesheet" />
+<link rel="stylesheet" href="//use.fontawesome.com/releases/v5.0.7/css/all.css"><link type="application/atom+xml" rel="alternate" href="https://riven314.github.io/alexlauwh/feed.xml" title="Alex Lau" />
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/alexlauwh/">Alex Lau</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/alexlauwh/about/">About Me</a><a class="page-link" href="/alexlauwh/search/">Search</a><a class="page-link" href="/alexlauwh/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">How to Properly Apply Dropout on Recurrent Neural Network?</h1><p class="page-description">Applying dropout on RNN could be tricky! This post introduces you 3 key dropout techniques for training RNN.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2020-08-03T00:00:00-05:00" itemprop="datePublished">
+        Aug 3, 2020
+      </time>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      7 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/alexlauwh/categories/#markdown">markdown</a>
+        
+      
+      </p>
+    
+
+    </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h1"><a href="#how-to-properly-apply-dropout-on-recurrent-neural-network">How to Properly Apply Dropout on Recurrent Neural Network?</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#overview">Overview</a></li>
+<li class="toc-entry toc-h2"><a href="#what-is-dropout">What is Dropout?</a></li>
+<li class="toc-entry toc-h2"><a href="#a-briefly-introduction-word-embedding">A Briefly Introduction Word Embedding</a></li>
+<li class="toc-entry toc-h2"><a href="#technique-1-dropout-on-word-embedding">Technique 1: Dropout on Word Embedding</a></li>
+<li class="toc-entry toc-h2"><a href="#a-brief-introduction-to-recurrent-layer">A Brief Introduction to Recurrent Layer</a></li>
+<li class="toc-entry toc-h2"><a href="#technique-2-dropout-on-hidden-state">Technique 2: Dropout on Hidden State</a></li>
+<li class="toc-entry toc-h2"><a href="#technique-3-dropout-on-hidden-to-hidden-weight-matrix">Technique 3: Dropout on Hidden-to-Hidden Weight Matrix</a></li>
+<li class="toc-entry toc-h2"><a href="#putting-all-dropout-techniques-together">Putting All Dropout Techniques Together</a></li>
+<li class="toc-entry toc-h2"><a href="#closing-remark">Closing Remark</a></li>
+<li class="toc-entry toc-h2"><a href="#reference">Reference</a></li>
+</ul>
+</li>
+</ul><h1 id="how-to-properly-apply-dropout-on-recurrent-neural-network">
+<a class="anchor" href="#how-to-properly-apply-dropout-on-recurrent-neural-network" aria-hidden="true"><span class="octicon octicon-link"></span></a>How to Properly Apply Dropout on Recurrent Neural Network?</h1>
+
+<h2 id="overview">
+<a class="anchor" href="#overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Overview</h2>
+<p>Dropout is a useful tool for regularizing neural network, but applying it on Recurrent Neural Network could be very tricky! This blogpost would introduce 3 dropout techniques that are empirically effective in training Recurrent Neural Network for language models.</p>
+
+<p>The techniques are originally introduced in <strong>a paper by Stephen Merity in 2017</strong>. Besides the dropout techniques, the paper also introduce a lot of additional regularization techniques such as ASG optimization, activation regularization and temporal activation regularization.</p>
+
+<p>Since then the techniques have been widely used for training language models with RNN. In particular, FastAI community included the whole AWD-LSTM network in its library and further develop a transfer learning framework called ULMFit that is built on top of AWD-LSTM network.</p>
+
+<p>I recently have a leisure time to read through the original paper and find that the dropout techniques include a lot of details that could be hard to digest. Therefore, this blogpost aims to illustrate the dropout techniques augmented with visual diagrams. I hope it could help the readers more easily understand the dropout techniques introduced in the paper.</p>
+
+<p>The 3 dropout techniques I would introduce are (1) dropout on word embedding, (2) dropout on hidden state, and (3) dropout on hidden-to-hidden weight matrix. I would firstly give you a brief introduction to word embedding and recurrent layer. After that, I will highlight each dropout technique one by one.</p>
+
+<h2 id="what-is-dropout">
+<a class="anchor" href="#what-is-dropout" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is Dropout?</h2>
+<p>Before diving into the techniques, let’s briefly review what dropout is. Dropout is a famous weapon for fighting against model overfitting. In essence, dropout is a binary mask applied on a layer (usually the layer applied is an activation layer). It randomly zeroes out each activation unit with a specified chance. By doing so it could effectively discourage model from relying on a small subset of neurons but instead utilize more of its neurons, and hence boosting the generalization power of a model.</p>
+
+<p>Dropout typically mask each activation unit independently with a specified probability. This setting has gained a dominant success in Convolution Neural Network but failed miserably in Recurrent Neural Network because such independency seriously hurts RNN from learning long-term dependency relationship. The various dropout techniques I introduce below are essentially to impose different dependency structure on the dropout mask so as to effectively regulate RNN.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>insert CNN dropout visuals
+</code></pre></div></div>
+
+<h2 id="a-briefly-introduction-word-embedding">
+<a class="anchor" href="#a-briefly-introduction-word-embedding" aria-hidden="true"><span class="octicon octicon-link"></span></a>A Briefly Introduction Word Embedding</h2>
+<p>In language model, we usually have a fixed set of vocabulary and we represent each word by a vector. Word embedding is essentially a weight matrix storing all these vectors. Just imagine a word embedding is a compat storage with all vectors vertically packed so that its row is the vocabulary size and its col is the dimension of the vecotr. You could retrieve the vector of a word by its corresponding index.</p>
+
+<p><img src="/alexlauwh/images/2020-08-03-AWS_LSTM/B2_Z13_intro_embedding.png" alt=""></p>
+
+<h2 id="technique-1-dropout-on-word-embedding">
+<a class="anchor" href="#technique-1-dropout-on-word-embedding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Technique 1: Dropout on Word Embedding</h2>
+<p>Applying dropout on word embedding is anologous to disappearing some words from a vocabulary. To achieve such effect, we could randomly select some words (indexes) from the vocabulary and completely zero out their vectors. Technically, it is equivalent to randomly masking out some rows of the word embedding weight matrix.</p>
+
+<p><img src="/alexlauwh/images/2020-08-03-AWS_LSTM/B2_Z13_dropout_embedding.png" alt=""></p>
+
+<p>To minimize the operation, such dropout mask only updates once for each mini-batch and it is applied on the word embedding before feed-forward pass. Another details is that the dropout mask on word embedding is not a binary mask. Instead, it scales non-masked weight by a factor of $1/(1-p)$ where $p$ is the probability that a word to be masked out. In other words, a higher $p$ leads to a larger scaling factor on non-masked weight.</p>
+
+<h2 id="a-brief-introduction-to-recurrent-layer">
+<a class="anchor" href="#a-brief-introduction-to-recurrent-layer" aria-hidden="true"><span class="octicon octicon-link"></span></a>A Brief Introduction to Recurrent Layer</h2>
+<p>Recurrent Neural Network is a composition of recurrent layer(s). There are many variants of RNN and each variant has its unique design of recurrent layer. For example, one of its variant Long Short Term Memory Network (LSTM) introduces forget, input, cell and output gates in its recurrent layer for better performance. To avoid dwelling into those complexity, I will mainly focus on vanilla recurrent layer, but keep in mind that the dropout principles introduced here can be applied to all RNN variants. Also note that the notations used below mainly follow <a href="https://pytorch.org/docs/stable/generated/torch.nn.RNN.html">PyTorch documentation</a>.</p>
+
+<p>Recurrent layer is designed to handle sequence data. In contrast to image data, sequence data usually have serial dependency and they have variable length. Recurrent layer processes sequence data across timestep using its shared parameters. Such design is an efficient structure for model parameterization (less parameters to be learned) and capturing essential dependency (memory).</p>
+
+<p>In order to store the essential memory from the preceding timesteps, recurrent layer introduces an activation layer called hidden state $\bold{h_{t-1}}$. At each time step $t$, a recurrent layer receives input vector at current timestep $\bold{x_{t}}$ and hidden state at preceding timestep $\bold{h_{t-1}}$ to generate hidden state at current timestep $\bold{h_t}$. Finally, $\bold{h_t}$ is passed to 2 places - one for output of the recurrent layer and another for the recurrent input of the recurrent layer in the next timestep.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>insert RNN diagram overview
+</code></pre></div></div>
+
+<p>Note that $\bold{x_{t}}$ and $\bold{h_{t-1}}$ often have different dimension. To abbreviate, lets denote the input vector’s dimension as <em>input_size</em> and hidden state’s dimension as <em>hidden_size</em>. Mathematically underneath the hood of the recurrent layer, $\bold{x_{t}}$ and $\bold{h_{t-1}}$ are undergoing the following transformation to get $\bold{h_t}$:</p>
+
+<span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="bold">h</mi><mi mathvariant="bold">t</mi></msub><mo>=</mo><mi>f</mi><mo stretchy="false">(</mo><mrow><msub><mi mathvariant="bold">W</mi><mrow><mi mathvariant="bold">i</mi><mi mathvariant="bold">h</mi></mrow></msub><msub><mi mathvariant="bold">x</mi><mi mathvariant="bold">t</mi></msub><mo>+</mo><msub><mi mathvariant="bold">W</mi><mrow><mi mathvariant="bold">h</mi><mi mathvariant="bold">h</mi></mrow></msub><msub><mi mathvariant="bold">h</mi><mrow><mi mathvariant="bold">t</mi><mo>−</mo><mn mathvariant="bold">1</mn></mrow></msub><mo>+</mo><msub><mi mathvariant="bold">b</mi><mrow><mi mathvariant="bold">i</mi><mi mathvariant="bold">h</mi></mrow></msub><mo>+</mo><msub><mi mathvariant="bold">b</mi><mrow><mi mathvariant="bold">h</mi><mi mathvariant="bold">h</mi></mrow></msub></mrow><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\bold{h_{t}} = f(\bold{W_{ih} x_{t} + W_{hh} h_{t-1} + b_{ih} + b_{hh}})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">h</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.29444400000000004em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">t</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.10764em;">f</span><span class="mopen">(</span><span class="mord"><span class="mord"><span class="mord mathbf" style="margin-right:0.01597em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.01597em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">i</span><span class="mord mathbf mtight">h</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathbf">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.29444400000000004em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">t</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord mathbf" style="margin-right:0.01597em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.01597em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">h</span><span class="mord mathbf mtight">h</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathbf">h</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.301108em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">t</span><span class="mbin mtight">−</span><span class="mord mathbf mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.208331em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord mathbf">b</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">i</span><span class="mord mathbf mtight">h</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord mathbf">b</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbf mtight">h</span><span class="mord mathbf mtight">h</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span>
+
+<p>We call $\bold{W_{ih}}$ as input-to-hidden weight matrix because it helps transform an input vector into a vector of size <em>hidden_size</em>. By the same token, we call $\bold{W_{hh}}$ as hidden-to-hidden weight matrix. Activation function $f$ is usually a hyperbolic tangent function $tanh$. Lastly, $\bold{b_{ih}}$ and $\bold{b_{hh}}$ are bias terms.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>insert inner mechanism of Recurrent layer
+</code></pre></div></div>
+
+<p>The above overview should suffice to introduce the remaining 2 types of dropout techniques for regulating recurrent layers.</p>
+
+<h2 id="technique-2-dropout-on-hidden-state">
+<a class="anchor" href="#technique-2-dropout-on-hidden-state" aria-hidden="true"><span class="octicon octicon-link"></span></a>Technique 2: Dropout on Hidden State</h2>
+<p>An intuitive way to regulate recurrent layer is to apply dropout on hidden state. However, there are several caveats we need to notice when doing so:</p>
+<ol>
+  <li>Only hidden state for output has dropout applied, hidden state for next timestep is free from dropout</li>
+  <li>For different samples in a mini-batch, they should have different dropout masks applied on their hidden state</li>
+  <li>For different timesteps of a given sample, the same dropout mask must be applied on its hidden state</li>
+  <li>In case of multiple recurrent layers, different dropout masks are applied on different hidden states for a given sample</li>
+  <li>In case of multiple recurrent layers, the hidden state output from the final layer does not have dropout applied</li>
+</ol>
+
+<p>Similar to dropout on word embedding, the dropout masks on hidden state only update once for each mini-batch, before feed-forward pass.</p>
+
+<p>Here are some simple diagrams to illustrate the above details:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>several diagrams to illustrate dropout on hidden states
+</code></pre></div></div>
+
+<h2 id="technique-3-dropout-on-hidden-to-hidden-weight-matrix">
+<a class="anchor" href="#technique-3-dropout-on-hidden-to-hidden-weight-matrix" aria-hidden="true"><span class="octicon octicon-link"></span></a>Technique 3: Dropout on Hidden-to-Hidden Weight Matrix</h2>
+<p>There are empirical studies showing that overfitting easily appear in recurrent connection of a recurrent layer. To combat such overfitting, we could apply dropout on hidden-to-hidden weight matrix. Such dropout could mitigate the chance that the overfitting in one timestep would significantly propagate to the next timestep. Similar to the above, there are a few caveats to note on its details:</p>
+<ol>
+  <li>Once the dropout mask is applied on the hidden-to-hidden weight matrix, the mask is locked for all samples and all timesteps in a mini-batch</li>
+  <li>In case of multiple recurrent layers, different dropout masks are applied on hidden-to-hidden weight matrix of different recurrent layers</li>
+</ol>
+
+<p>Again, the dropout mask on hidden-to-hidden weight matrix is only update once for each mini-batch, before feed-forward pass. In the original paper, authors mention that applying dropout on input-to-hidden weight matrix could also help, but applying so on hidden-to-hidden weight matrix already suffice.</p>
+
+<p>Below diagrams illustrate how dropout on hidden-to-hidden weight matrix works in details:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>diagrams
+</code></pre></div></div>
+
+<h2 id="putting-all-dropout-techniques-together">
+<a class="anchor" href="#putting-all-dropout-techniques-together" aria-hidden="true"><span class="octicon octicon-link"></span></a>Putting All Dropout Techniques Together</h2>
+<p>The diagrams below best summarize how it looks like when all dropout techniques are applied on a RNN of multiple recurrent layers:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>diagrams
+</code></pre></div></div>
+
+<h2 id="closing-remark">
+<a class="anchor" href="#closing-remark" aria-hidden="true"><span class="octicon octicon-link"></span></a>Closing Remark</h2>
+<p>At last, I hope this article could help clear most of the subtleties in the dropout schemes from AWD-LSTM Network. Finally, I hope you enjoy this blogpost!</p>
+
+<h2 id="reference">
+<a class="anchor" href="#reference" aria-hidden="true"><span class="octicon octicon-link"></span></a>Reference</h2>
+
+  </div><a class="u-url" href="/alexlauwh/markdown/2020/08/03/AWD_LSTM.html" hidden></a>
+</article>
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/alexlauwh/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/alexlauwh/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/alexlauwh/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Everything about Machine Learning, Open-source Library and Research</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/alexlauwh" title="alexlauwh"><svg class="svg-icon grey"><use xlink:href="/alexlauwh/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/NA" title="NA"><svg class="svg-icon grey"><use xlink:href="/alexlauwh/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
